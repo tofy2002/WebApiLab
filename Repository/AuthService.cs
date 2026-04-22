@@ -27,6 +27,7 @@ namespace Lab2.Repository
         private readonly IConfiguration _config;
         private readonly ITIDbContext _context;
 
+
         public AuthService(
             IConfiguration config,
             UserManager<ApplicationUser> userManager,

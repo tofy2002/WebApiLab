@@ -2,6 +2,7 @@
 using Lab2.Repository;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Lab3.Controller
 {
@@ -26,7 +27,7 @@ namespace Lab3.Controller
 
             return Ok(result.message);
         }
-
+        [EnableRateLimiting("LoginPolicy")]
         [HttpPost("Login")]
         public async Task<IActionResult> Login(LoginDTO login)
         {

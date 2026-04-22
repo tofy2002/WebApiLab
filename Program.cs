@@ -5,7 +5,9 @@ using Lab2.Repository;
 using Lab2.UnitOfWorks;
 using Lab3.Filters;
 using Lab3.Models;
+using Lab3.UnitOfWorks;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -62,17 +64,22 @@ builder.Services.AddAuthentication(options =>
 
 // ================= Services =================
 builder.Services.AddControllers();
+builder.Services.AddMemoryCache();
 builder.Services.AddScoped<LogActionFilter>();
 builder.Services.AddScoped<PersonActionFilter>();
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddAutoMapper(typeof(MappingConfig));
-
+builder.Services.AddScoped<CacheService>();
 builder.Services.AddScoped<UnitOfWork>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<StudentService>();
 builder.Services.AddScoped<DepartmentService>();
-
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = "localhost:6379";
+    options.InstanceName = "WebApiLab:";
+});
 // ================= Swagger =================
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -109,7 +116,6 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-// ================= CORS =================
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -119,9 +125,34 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader();
     });
 });
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddFixedWindowLimiter("LoginPolicy", opt =>
+    {
+        opt.PermitLimit = 5;
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.QueueLimit = 0;
+    });
+    options.OnRejected = async (context, token) =>
+    {
+        context.HttpContext.Response.StatusCode = 429;
+        //await context.HttpContext.Response.WriteAsync("Too many requests. Try again later.");
+        await context.HttpContext.Response.WriteAsJsonAsync(new
+        {
+            message = "Too many requests"
+        });
+    };
+});
 
 var app = builder.Build();
-
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["X-Frame-Options"] = "DENY";
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers["Content-Security-Policy"] =
+       "default-src 'self';";
+    await next();
+});
 app.UseCors("AllowFrontend");
 
 // ================= Middleware =================
@@ -130,7 +161,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
+app.UseRateLimiter();
 app.UseHttpsRedirection();
 
 app.UseMiddleware<Lab3.MiddleWare.ExceptionMiddleware>();

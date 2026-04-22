@@ -37,7 +37,13 @@ namespace Lab3.Controller
         {
 
             var result=await _Service.GetAll(search, page, pageSize, sortby, sortDir);
-            return Ok(result);
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "Students retrieved successfully",
+                Data = result
+            });
+
         }
         [HttpPost]
         public async Task<IActionResult> Add(CreatedStudentDTO stdo)
@@ -45,20 +51,36 @@ namespace Lab3.Controller
             Logger.LogInformation("Adding a new student with name: {FirstName} {LastName}", stdo.StFname, stdo.StLname);
             var result= await _Service.Add(stdo);
             Logger.LogInformation("Successfully added student with ID: {Id}", result.stdto.StId);   
-            return CreatedAtAction(nameof(GetById), new { id=result.stdto.StId}, result.stdto);
+            return CreatedAtAction(nameof(GetById), new { id=result.stdto.StId}, new ApiResponse<Student>
+            {
+                Success = true,
+                Message = "Student added successfully",
+                Data = result.stdto
+            });
         }
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, CreatedStudentDTO stdo)
         {
             var rsult=await _Service.Update(id, stdo);
-            return NoContent();
+            return Ok(new ApiResponse<bool>
+            {
+                Success = true,
+                Message = "Student updated successfully",
+                Data = true
+            });
 
         }
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
            var result= await _Service.Delete(id);
-            return NoContent();
+            return Ok(new ApiResponse<bool>
+            {
+                Success = true,
+                Message = "Student deleted successfully",
+                Data = true
+
+            });
            
         }
         [HttpGet("{id}")]
@@ -66,7 +88,12 @@ namespace Lab3.Controller
         {
            
             var result= await _Service.GetById(id);
-            return Ok(result);  
+            return Ok(new ApiResponse<StudentDTO>
+            {
+                Success = true,
+                Message = "Student retrieved successfully",
+                Data = result
+            });
         }
     }
 }
