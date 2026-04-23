@@ -10,7 +10,6 @@ namespace Lab2.Mapping
     {
         public MappingConfig()
         {
-            // Student → DTO
             CreateMap<Student, StudentDTO>()
                 .ForMember(dest => dest.Age, opt => opt.MapFrom(src => src.StAge))
                 .AfterMap((src, dest) =>
@@ -22,16 +21,13 @@ namespace Lab2.Mapping
                         : null;
                 });
 
-            // Department → DepartmentDTO
             CreateMap<Department, DepartmentDTO>()
                 .ForMember(dest => dest.deptName, opt => opt.MapFrom(src => src.DeptName))
                 .ForMember(dest => dest.deptDescription, opt => opt.MapFrom(src => src.DeptDesc))
                 .ForMember(dest => dest.StudentCount, opt => opt.MapFrom(src => src.Students.Count));
 
-            // 🔥 THIS IS THE MISSING ONE
             CreateMap<Department, ReadDepartmentDTO>();
 
-            // Create DTO → Entity
             CreateMap<CreatedStudentDTO, Student>()
                 .ForMember(dest => dest.StId, opt => opt.Ignore())
                 .ForMember(dest => dest.StFname, opt => opt.MapFrom(src => src.StFname))

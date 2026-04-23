@@ -23,8 +23,8 @@ namespace Lab3.Controller
     [Authorize]
     public class StudentController : ControllerBase
     {
-        public IStudentService _Service { get; }
-        public ILogger<StudentController> Logger { get; }
+        private readonly IStudentService _Service;  
+        private readonly ILogger<StudentController> Logger;
 
         public StudentController(IStudentService StudentService,ILogger<StudentController> logger)
         {

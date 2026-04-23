@@ -47,7 +47,6 @@ namespace Lab3.MiddleWare
                     statusCode = 400;
                     message = ex.Message;
                     break;
-                    default:
                 case UnauthorizedException:
                     statusCode = 401;
                     message = ex.Message;
@@ -63,7 +62,7 @@ namespace Lab3.MiddleWare
             };
             context.Response.StatusCode = statusCode;
             var json = JsonSerializer.Serialize(response);
-            await context.Response.WriteAsJsonAsync(json);
+            await context.Response.WriteAsync(json);
         }
     }
 }

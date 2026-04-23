@@ -68,7 +68,7 @@ builder.Services.AddScoped<CacheService>();
 builder.Services.AddScoped<UnitOfWork>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IStudentService, StudentService>();
-builder.Services.AddScoped<DepartmentService>();
+builder.Services.AddScoped<IDepartmentService, DepartmentService>();
 builder.Services.AddStackExchangeRedisCache(options =>
 {
     options.Configuration = "localhost:6379";
