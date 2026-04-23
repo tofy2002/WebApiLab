@@ -14,15 +14,15 @@ namespace Lab2.Repository
             this._context = _context;
            
         }
-        public IQueryable<T> GetAllQueryable(params Expression<Func<T, object>>[] includes)
-        {
-            var query = _context.Set<T>().AsQueryable().AsNoTracking();
-            foreach (var include in includes)
-            {
-                query = query.Include(include);
-            }
-            return query;
-        }
+        //public IQueryable<T> GetAllQueryable(params Expression<Func<T, object>>[] includes)
+        //{
+        //    var query = _context.Set<T>().AsQueryable().AsNoTracking();
+        //    foreach (var include in includes)
+        //    {
+        //        query = query.Include(include);
+        //    }
+        //    return query;
+        //}
         public List<T> GetAll()
         {
             return _context.Set<T>().ToList();

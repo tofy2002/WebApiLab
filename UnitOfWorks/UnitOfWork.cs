@@ -1,40 +1,50 @@
-﻿using Lab3.Models;
-using Lab2.Repository;
-
+﻿using Lab2.Repository;
+using Lab3.Models;
+using Lab3.Repository;
+using Lab3.Repository.interfaces;
 
 namespace Lab2.UnitOfWorks
 {
     public class UnitOfWork
     {
-        ITIDbContext db;
-        GenericRepo<Student> stdrepo;
-        GenericRepo<Department> deptrepo;
+        private readonly ITIDbContext _db;
+
+        private StudentRepo _studentRepo;               // FIELD
+        private IDepartmentRepo _departmentRepo;
+
         public UnitOfWork(ITIDbContext db)
         {
-            this.db = db;
-        }
-        public GenericRepo<Student> StudentRepo
-        {
-            get
-            {
-                if (stdrepo == null)
-                    stdrepo = new GenericRepo<Student>(db);
-                return stdrepo;
-            }
-        }
-        public GenericRepo<Department> DepartmentRepo
-        {
-            get
-            {
-                if (deptrepo == null)
-                    deptrepo = new GenericRepo<Department>(db);
-                return deptrepo;
-            }
-        }
-        public async Task Save()
-        {
-           await db.SaveChangesAsync();
+            _db = db;
         }
 
+        // ✔ PROPERTY
+        public StudentRepo StudentRepo
+        {
+            get
+            {
+                if (_studentRepo == null)
+                    _studentRepo = new StudentRepo(_db);
+
+                return _studentRepo;
+            }
+        }
+
+       
+
+        public IDepartmentRepo DepartmentRepo
+        {
+            get
+            {
+                if (_departmentRepo == null)
+                    _departmentRepo = new DepartmentRepo(_db);
+
+                return _departmentRepo;
+            }
+        }
+
+        public async Task Save()
+        {
+            await _db.SaveChangesAsync();
+        }
     }
 }

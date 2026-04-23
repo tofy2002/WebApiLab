@@ -4,11 +4,12 @@ using Lab2.UnitOfWorks;
 using Lab3.DTOs.DepartmentDTOS;
 using Lab3.Models;
 using Lab3.Models;
+using Lab3.Services.interfaces;
 using Microsoft.EntityFrameworkCore;
 
-namespace Lab2.Repository
+namespace Lab3.Services
 {
-    public class DepartmentService
+    public class DepartmentService:IDepartmentService
     {
         private readonly UnitOfWork _unit;
         private readonly IMapper _mapper;
@@ -20,7 +21,7 @@ namespace Lab2.Repository
         }
         public async Task<ReadDepartmentDTO?> GetById(int id)
         {
-            var dept = await _unit.DepartmentRepo.GetById(id);
+            var dept = await _unit.DepartmentRepo.GetByIdAsync(id);
 
             if (dept == null)
                 return null;
@@ -30,11 +31,7 @@ namespace Lab2.Repository
 
         public async Task<List<ReadDepartmentDTO>> GetAll()
         {
-            var departments = await _unit.DepartmentRepo
-                .GetAllQueryable(d => d.Students)
-                .AsNoTracking()
-                .ToListAsync();
-
+            var departments = await _unit.DepartmentRepo.GetAllWithStudentsAsync();
             return _mapper.Map<List<ReadDepartmentDTO>>(departments);
         }
 
@@ -43,7 +40,7 @@ namespace Lab2.Repository
         {
             var department = _mapper.Map<Department>(dto);
 
-            await _unit.DepartmentRepo.Add(department);
+            await _unit.DepartmentRepo.AddAsync(department);
             await _unit.Save();
 
             return department;
@@ -52,7 +49,7 @@ namespace Lab2.Repository
       
         public async Task<bool> Update(int id, CreatedDepartmentDTO dto)
         {
-            var department = await _unit.DepartmentRepo.GetById(id);
+            var department = await _unit.DepartmentRepo.GetByIdAsync(id);
             if (department == null)
                 return false;
 

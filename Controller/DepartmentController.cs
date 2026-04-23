@@ -1,6 +1,6 @@
 ﻿using Lab2.DTOs.DepartmentDTOS;
-using Lab2.Repository;
 using Lab3.DTOs.DepartmentDTOS;
+using Lab3.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Lab2.Controller

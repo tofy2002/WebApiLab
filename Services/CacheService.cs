@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Caching.Distributed;
 
-namespace Lab3.UnitOfWorks
+namespace Lab3.Services
 {
     public class CacheService
     {

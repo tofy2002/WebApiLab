@@ -1,11 +1,11 @@
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Lab2.Mapping;
-using Lab2.Repository;
 using Lab2.UnitOfWorks;
 using Lab3.Filters;
 using Lab3.Models;
-using Lab3.UnitOfWorks;
+using Lab3.Services;
+using Lab3.Services.interfaces;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -17,7 +17,6 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ================= Logging =================
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
     .WriteTo.Console()
@@ -26,11 +25,9 @@ Log.Logger = new LoggerConfiguration()
 
 builder.Host.UseSerilog();
 
-// ================= DB =================
 builder.Services.AddDbContext<ITIDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// ================= Identity =================
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
     options.Lockout.MaxFailedAccessAttempts = 5;
@@ -39,7 +36,6 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<ITIDbContext>()
 .AddDefaultTokenProviders();
 
-// ================= JWT =================
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = "Bearer";
@@ -61,8 +57,6 @@ builder.Services.AddAuthentication(options =>
          RoleClaimType = ClaimTypes.Role
     };
 });
-
-// ================= Services =================
 builder.Services.AddControllers();
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<LogActionFilter>();
@@ -73,7 +67,7 @@ builder.Services.AddAutoMapper(typeof(MappingConfig));
 builder.Services.AddScoped<CacheService>();
 builder.Services.AddScoped<UnitOfWork>();
 builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<StudentService>();
+builder.Services.AddScoped<IStudentService, StudentService>();
 builder.Services.AddScoped<DepartmentService>();
 builder.Services.AddStackExchangeRedisCache(options =>
 {
@@ -90,7 +84,6 @@ builder.Services.AddSwaggerGen(options =>
         Version = "v1"
     });
 
-    // JWT support in Swagger
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         In = ParameterLocation.Header,

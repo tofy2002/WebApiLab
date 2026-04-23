@@ -1,6 +1,8 @@
 ﻿using Lab2.DTOs.StudentDTOS;
 using Lab3.DTOs;
+using Lab3.Exceptions;
 using Lab3.Models;
+using Lab3.Services.interfaces;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -9,16 +11,9 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Lab2.Repository
+namespace Lab3.Services
 {
-    public interface IAuthService
-    {
-        Task<(bool success, string message)> RegisterAsync(RegisterDTO dto);
-        Task<(bool success, string message, AuthResponseDTO? response)> LoginAsync(LoginDTO dto);
-        Task<(bool success, string message, AuthResponseDTO? response)> RefreshTokenAsync(string refreshToken);
-        Task<(bool success, string message)> RevokeTokenAsync(string refreshToken);
-    }
-
+   
     public class AuthService : IAuthService
     {
         private readonly UserManager<ApplicationUser> _userManager;
@@ -41,7 +36,7 @@ namespace Lab2.Repository
             _roleManager = roleManager;
             _context = context;
         }
-        public async Task<(bool success, string message)> RegisterAsync(RegisterDTO dto)
+        public async Task RegisterAsync(RegisterDTO dto)
         {
             var user = new ApplicationUser
             {
@@ -55,7 +50,7 @@ namespace Lab2.Repository
             if (!result.Succeeded)
             {
                 var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-                return (false, errors);
+                throw new BadRequestException(errors);
             }
 
             if (!await _roleManager.RoleExistsAsync("Student"))
@@ -63,45 +58,45 @@ namespace Lab2.Repository
 
             await _userManager.AddToRoleAsync(user, "Student");
 
-            return (true, "User created successfully");
+            return;
         }
-        public async Task<(bool success, string message, AuthResponseDTO? response)> LoginAsync(LoginDTO dto)
+        public async Task<AuthResponseDTO> LoginAsync(LoginDTO dto)
         {
             var user = await _userManager.FindByNameAsync(dto.username);
             if (user == null)
-                return (false, "Invalid username or password", null);
+                throw new UnauthorizedException("Invalid username or password");
 
             var result = await _signInManager.CheckPasswordSignInAsync(user, dto.password, lockoutOnFailure: true);
             if (!result.Succeeded)
-                return (false, "Invalid username or password", null);
+                throw new UnauthorizedException("Invalid username or password");
 
             var roles = await _userManager.GetRolesAsync(user);
 
             var (jwtToken, jwtExpiry) = GenerateJwtToken(user, roles);
             var refreshToken = await CreateAndSaveRefreshTokenAsync(user);
 
-            return (true, "Login successful", new AuthResponseDTO
+            return new AuthResponseDTO
             {
                 Token = jwtToken,
                 TokenExpiresAt = jwtExpiry,
                 RefreshToken = refreshToken.Token,
                 RefreshTokenExpiresAt = refreshToken.ExpiresOn
-            });
+            };
         }
 
-        public async Task<(bool success, string message, AuthResponseDTO? response)> RefreshTokenAsync(string refreshToken)
+        public async Task<AuthResponseDTO> RefreshTokenAsync(string refreshToken)
         {
             var token = await _context.RefreshTokens
                 .Include(t => t.User)
                 .SingleOrDefaultAsync(t => t.Token == refreshToken);
 
             if (token == null)
-                return (false, "Invalid refresh token", null);
+                throw new UnauthorizedException("Invalid refresh token");
 
             if (!token.IsActive)
             {
                 var reason = token.IsExpired ? "Refresh token has expired" : "Refresh token has been revoked";
-                return (false, reason, null);
+                throw new UnauthorizedException(reason);
             }
 
             // Revoke old token (rotation — each refresh token is single-use)
@@ -113,29 +108,29 @@ namespace Lab2.Repository
             var (jwtToken, jwtExpiry) = GenerateJwtToken(user, roles);
             var newRefreshToken = await CreateAndSaveRefreshTokenAsync(user);
 
-            return (true, "Token refreshed", new AuthResponseDTO
+            return new AuthResponseDTO
             {
                 Token = jwtToken,
                 TokenExpiresAt = jwtExpiry,
                 RefreshToken = newRefreshToken.Token,
                 RefreshTokenExpiresAt = newRefreshToken.ExpiresOn
-            });
+            };
         }
-        public async Task<(bool success, string message)> RevokeTokenAsync(string refreshToken)
+        public async Task RevokeTokenAsync(string userId, string refreshToken)
         {
             var token = await _context.RefreshTokens
                 .SingleOrDefaultAsync(t => t.Token == refreshToken);
 
             if (token == null)
-                return (false, "Invalid refresh token");
+                throw new UnauthorizedException("Invalid refresh token");
 
             if (!token.IsActive)
-                return (false, "Token is already inactive");
+                throw new BadRequestException("Token is already inactive");
 
             token.RevokedOn = DateTime.UtcNow;
             await _context.SaveChangesAsync();
 
-            return (true, "Token revoked successfully");
+            return;
         }
         private (string token, DateTime expiry) GenerateJwtToken(ApplicationUser user, IList<string> roles)
         {

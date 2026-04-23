@@ -1,18 +1,21 @@
 ﻿using AutoMapper;
 using Lab2.DTOs.StudentDTOS;
+using Lab2.UnitOfWorks;
+using Lab3.DTOs;
 using Lab3.Exceptions;
 using Lab3.Models;
-using Lab3.UnitOfWorks;
+using Lab3.Services.interfaces;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using System.Globalization;
+using System.Xml.Linq;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
-namespace Lab2.UnitOfWorks
+namespace Lab3.Services
 {
-    public class StudentService
+    public class StudentService:IStudentService
     {
         private readonly UnitOfWork _unit;
         private readonly IMapper _mapper;
@@ -27,57 +30,24 @@ namespace Lab2.UnitOfWorks
             this.logger = logger;
             _cache = cache;
         }
-        public async Task<object> GetAll(string? search, int page, int pageSize,string? sortby,string? sortDir)
+        public async Task<PagedResponse<StudentDTO>> GetAll(string? search, int page, int pageSize,string? sortby,string? sortDir)
         {
-            var cacheKey = $"students:" +
-               $"search={search ?? "none"}:" +
-               $"page={page}:" +
-               $"size={pageSize}:" +
-               $"sort={sortby ?? "none"}:" +
-               $"dir={sortDir ?? "asc"}";
-            var cached=await _cache.GetAsync<object>(cacheKey);
+            var cacheKey = $"students:" +$"search={search ?? "none"}:" + $"page={page}:" + $"size={pageSize}:" +$"sort={sortby ?? "none"}:" +$"dir={sortDir ?? "asc"}";
+            var cached=await _cache.GetAsync<PagedResponse<StudentDTO>>(cacheKey);
             if (cached != null)
             {
                 logger.LogInformation("Cache hit for key: {CacheKey}", cacheKey);
                 return cached;
             }
             logger.LogInformation("CACHE MISS");
-            var query = _unit.StudentRepo
-                .GetAllQueryable(s => s.Dept, s => s.StSuperNavigation)
-                .AsNoTracking();
-
-            if (!string.IsNullOrEmpty(search))
-            {
-                query = query.Where(s =>
-                    s.StFname.Contains(search) ||
-                    s.StLname.Contains(search));
-            }
-            sortby= sortby?.ToLower();
-            sortDir= sortDir?.ToLower()== "desc" ? "desc" : "asc";
-            query = (sortby, sortDir) switch
-            {
-                ("fname", "desc") => query.OrderByDescending(s => s.StFname),
-                ("fname", _) => query.OrderBy(s => s.StFname),
-
-                ("lname", "desc") => query.OrderByDescending(s => s.StLname),
-                ("lname", _) => query.OrderBy(s => s.StLname),
-
-                _ => query.OrderBy(s => s.StId)
-            };
-            var total = await query.CountAsync();
-            var students = await query
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToListAsync();
-
+            var (students, total) = await _unit.StudentRepo.GetPagedAsync(search, page, pageSize, sortby, sortDir);
             var studentDTOs = _mapper.Map<List<StudentDTO>>(students);
-            //_cache.Set(cacheKey, studentDTOs, TimeSpan.FromSeconds(30));
-            var result = new
+            var result = new PagedResponse<StudentDTO>()
             {
-                data = studentDTOs,
-                page,
-                pageSize,
-                total
+                Data = studentDTOs,
+                Page=page,
+                PageSize=pageSize,
+                TotalCount = total
             };
             await _cache.SetAsync(cacheKey, result, TimeSpan.FromSeconds(30));
             return result;
@@ -92,7 +62,7 @@ namespace Lab2.UnitOfWorks
             }
             logger.LogInformation("CACHE MISS FOR STUDENT ID: {Id}", id);
             logger.LogInformation("Fetching student with ID: {Id}", id);
-            var student = _unit.StudentRepo.GetAllQueryable(s => s.Dept, s => s.StSuperNavigation).AsNoTracking().FirstOrDefault(s => s.StId == id);
+            var student =  await _unit.StudentRepo.GetByIdWithDetailsAsync(id);
             if (student == null)
             {
                 logger.LogError("Student with ID: {Id} not found", id);
@@ -102,44 +72,34 @@ namespace Lab2.UnitOfWorks
             await _cache.SetAsync(key, stdDto, TimeSpan.FromSeconds(30));
             return stdDto;
         }
-        public async Task<(bool success, string message, Student stdto)> Add(CreatedStudentDTO DTO)
+        public async Task<StudentDTO> Add(CreatedStudentDTO DTO)
         {
-            var deptExists = await _unit.DepartmentRepo.GetById(DTO.deptID);
+            var deptExists = await _unit.DepartmentRepo.GetByIdAsync(DTO.deptID);
             if (deptExists == null)
                 throw new BadRequestException($"Department with ID {DTO.deptID} does not exist. Please provide a valid department ID.");
-            var exists = await _unit.StudentRepo.GetById(DTO.ID);
-            if (exists != null)
-                throw new BadRequestException($"Student with ID {DTO.ID} already exists. Please provide a unique student ID.");
-            logger.LogInformation(
-    "[StudentService] Creating student | Name: {Name} | Age: {Age} | DeptId: {DeptId}",
-    DTO.StLname,
-    DTO.age,    
-    DTO.deptID
-);
+            logger.LogInformation("[StudentService] Creating student | Name: {Name} | Age: {Age} | DeptId: {DeptId}", DTO.StLname, DTO.age, DTO.deptID);
             await _cache.RemoveAsync($"student:{DTO.ID}");
             await _cache.RemoveAsync("students");
             var stdto = _mapper.Map<Student>(DTO);
             await _unit.StudentRepo.Add(stdto);
-
             await _unit.Save();
 
-            return (true, "Student added successfully", stdto);
+            return _mapper.Map<StudentDTO>(stdto);
         }
-        public async Task<bool> Update(int id, CreatedStudentDTO DTO)
+        public async Task Update(int id, CreatedStudentDTO DTO)
         {
             var student = await _unit.StudentRepo.GetById(id);
 
             if (student == null)
                 throw new NotFoundException($"No student with this id : {id}");
-            //_cache.Remove("students");
             _mapper.Map(DTO, student); // now safe (ID ignored)
 
             await _unit.Save();
             await _cache.RemoveAsync("students");
             await _cache.RemoveAsync($"student:{id}");
-            return true;
+            
         }
-        public async Task<bool> Delete(int id)
+        public async Task Delete(int id)
         {
             var deleted = await _unit.StudentRepo.DeleteAsync(id);
             if (!deleted)
@@ -148,7 +108,7 @@ namespace Lab2.UnitOfWorks
             await _unit.Save();
             await _cache.RemoveAsync("students");
             await _cache.RemoveAsync($"student:{id}");
-            return true;
+           
 
         }
     }

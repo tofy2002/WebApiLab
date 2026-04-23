@@ -1,8 +1,12 @@
 ﻿using Lab2.DTOs.StudentDTOS;
-using Lab2.Repository;
+using Lab3.DTOs;
+using Lab3.Models;
+using Lab3.Services;
+using Lab3.Services.interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using System.Security.Claims;
 
 namespace Lab3.Controller
 {
@@ -21,21 +25,29 @@ namespace Lab3.Controller
         [HttpPost("Register")]
         public async Task<IActionResult> Register(RegisterDTO dto)
         {
-            var result = await _service.RegisterAsync(dto);
-            if (!result.success)
-                return BadRequest(result.message);
+             await _service.RegisterAsync(dto);
+            
 
-            return Ok(result.message);
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "User registered successfully",
+                Data= null
+            });
         }
         [EnableRateLimiting("LoginPolicy")]
         [HttpPost("Login")]
         public async Task<IActionResult> Login(LoginDTO login)
         {
             var result = await _service.LoginAsync(login);
-            if (!result.success)
-                return Unauthorized(result.message);
+            
 
-            return Ok(result.response);
+            return Ok(new ApiResponse<AuthResponseDTO>
+            {
+                Success = true,
+                Message = "Login successful",
+                Data = result
+            });
         }
 
     
@@ -43,10 +55,14 @@ namespace Lab3.Controller
         public async Task<IActionResult> RefreshToken([FromBody] string refreshToken)
         {
             var result = await _service.RefreshTokenAsync(refreshToken);
-            if (!result.success)
-                return Unauthorized(result.message);
+           
 
-            return Ok(result.response);
+            return Ok(new ApiResponse<AuthResponseDTO>
+            {
+                Success = true,
+                Message = "Token refreshed successfully",
+                Data = result
+            });
         }
 
         // POST api/User/RevokeToken
@@ -54,11 +70,14 @@ namespace Lab3.Controller
         [Authorize]
         public async Task<IActionResult> RevokeToken([FromBody] string refreshToken)
         {
-            var result = await _service.RevokeTokenAsync(refreshToken);
-            if (!result.success)
-                return BadRequest(result.message);
-
-            return Ok(result.message);
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            await _service.RevokeTokenAsync(userId!, refreshToken);
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "Token revoked",
+                Data = null
+            });
         }
     }
 }
